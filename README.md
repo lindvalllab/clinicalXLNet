@@ -10,6 +10,8 @@ Tensorflow checkpoint and Pytorch checkpoint are available:
 
 Downstream evaluations on specific clinical task will be out in a few months.
 
+Example usage also coming soon...
+
 Cite the [ClinicalBERT](https://github.com/kexinhuang12345/clinicalBERT) paper for now:
 ```
 @article{clinicalbert,

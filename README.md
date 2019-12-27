@@ -84,8 +84,6 @@ We provide a [notebook](pretraining/pretrain-xlnet.ipynb) tutorial to pretrain y
 
 We provide notebook for preprocessing clinical notes and curate the PMV cohort on MIMIC-III. It consists of two parts, [R script](cohort_curation/HST953_FALL2019_Cohort_Selection27Sep19.Rmd) generates the general mechanical ventilation cohort and this [notebook](cohort_curation/MechVent_Preprocessing.ipynb) generates the specific cohort, see papers for detailed cohort curation process.
 
-Data file is expected to have column "TEXT", "HADM_ID" and "Label" (Note chunks, Admission ID, Label).
-
 ## Contact
 
 Please contact kexinhuang@hsph.harvard.edu for help or submit an issue. 

@@ -1,0 +1,374 @@
+---
+title: "Trach Study Cohort Selection"
+author: "HST953"
+date: "4/18/2019"
+output: html_document
+---
+
+### Utility Functions
+
+#### rename()
+
+```{r}
+rename <- function(dat, avoid_names, prefix){
+        for (name in colnames(dat)[!(colnames(dat) %in% avoid_names)]){
+            colnames(dat)[which(colnames(dat) == name)] <- paste(prefix, name, sep = '')
+        }
+    return(dat)
+}
+```
+
+#### ventCheck()
+
+```{r}
+ventCheck <- function(dat, days, admission_level, buffer){
+    #Generate some temporary variables
+    tmp <- data.frame() 
+    res <- data.frame()
+    
+    ## Order
+    dat <- dat[with(dat, order(SUBJECT_ID, HADM_ID, ICUSTAY_ID, ADMITTIME, INTIME, STARTTIME, ENDTIME)),]
+      
+    #For each unique icustay in the data set 
+    for (id in unique(dat[[admission_level]])){
+        
+      ## Subset subject data 
+      tmp <- dat[(dat[[admission_level]] == id),] 
+      
+      ## Elevator Music
+      ## message("ID: ", id)
+      
+      ## Time check here-- check to see that the latest endtime is greater than the earliest starttime PLUS some time period
+      if (((as.POSIXlt(as.character(tmp[nrow(tmp),]$ENDTIME), tz = "EST")) + (buffer * (24 * 60 * 60))) >= (as.POSIXlt(as.character(tmp[1,]$STARTTIME), tz = "EST") + (days * (24 * 60 * 60) ))){
+          
+          ## First start time in the block
+          tmp$FIRST_VENT_STARTTIME <- rep(tmp$STARTTIME[1], each = nrow(tmp))
+          
+          ## More elevator music
+          message("Included ID: ", tmp[[admission_level]][1])
+          ## Bind results
+          res <- rbind(res, tmp)
+      }
+
+    }
+    rownames(res) <- 1:nrow(res)
+
+    return(res)
+}
+```
+
+#### print_info()
+
+```{r}
+print_info <- function(dat){
+    print(length(unique(dat$SUBJECT_ID)))
+    print(length(unique(dat$HADM_ID)))
+    print(length(unique(dat$ICUSTAY_ID)))
+}
+```
+
+# Demographic and Cohort Data
+
+## Load Admission Data & Initial Cleaning
+
+Load `ADMISSIONS`, `PATIENTS`, and `ICUSTAYS` for cohort data. Load `icustay_detail` for more derived data. __Note:__ `icustay_detail` data are derived from `ICUSTAYS`
+
+```{r}
+## Load ADMISSIONS Table to join on HADM_ID
+adm <- read.csv("~/MIMIC-III/ADMISSIONS.csv", 
+                header = T, stringsAsFactors = F)
+
+## Load PATIENTS Table to join on SUBJECT_ID
+pat <- read.csv("~/MIMIC-III/PATIENTS.csv", 
+                header = T, stringsAsFactors = F)
+
+## Load ICUSTAYS Table to join on SUBJECT_ID, HADM_ID
+stays <- read.csv("~/MIMIC-III/ICUSTAYS.csv", 
+                  header = T, stringsAsFactors = F)
+
+## Load icustay_detail to join with ICUSTAYS
+## Note: icustay_detail is a derived table
+stays_detail <- read.csv("~/MIMIC-III/icustay_detail.csv", 
+                         header = T, stringsAsFactors = F)
+
+## Convert colnames to uppercase
+colnames(stays_detail) <- toupper(colnames(stays_detail))
+```
+
+## Initial Cohort (Derived from ICUSTAYS)
+
+As all patients must be acutely ill, we will begin at the ICU level.
+
+```{r}
+cat("There are", length(unique(stays$SUBJECT_ID)), "unique patients in this cohort.\n")
+cat("There are", length(unique(stays$HADM_ID)), "unique hospital admissions associated with this cohort.\n")
+cat("There are", length(unique(stays$ICUSTAY_ID)), "unique ICUSTAYs in this cohort.\n")
+
+cat(length(unique(stays$ICUSTAY_ID)) - length(unique(stays_detail$ICUSTAY_ID)), "ICUSTAYs are missing CHARTEVENTS data.\n")
+cat(length(unique(stays$HADM_ID)) - length(unique(stays_detail$HADM_ID)), "HOSPITAL ADMISSIONS are missing CHARTEVENTS data.\n")
+cat(length(unique(stays$SUBJECT_ID)) - length(unique(stays_detail$SUBJECT_ID)), "Patients were removed for having no CHARTEVENTS data.\n")
+```
+
+### Merging Admission, Patient, and ICU Data
+
+1. Remove `ROW_ID`, which is an index peculiar to each table.
+2. Join `ICUSTAYS` to derived `ICUSTAYS_DETAIL` table on tabular intersection. `ICUSTAYS` contains information that the derived `ICUSTAYS_DETAIL` does not.
+3. Join `ADMISSIONS` to `PATIENTS` on `SUBJECT_ID` for `GENDER`, `DOB`, `DOD` info.
+4. Join `ICUSTAYS` to `PATIENTS` and `ADMISSIONS` on tabular intersection.
+
+```{r}
+## (1)
+adm$ROW_ID <- NULL
+pat$ROW_ID <- NULL
+stays$ROW_ID <- NULL
+
+## (2)
+stays <- merge(stays, stays_detail, by = intersect(colnames(stays), colnames(stays_detail)))
+
+## Clean stays_detail
+rm(stays_detail)
+
+## (3)
+dat <- merge(adm, pat, by = "SUBJECT_ID")
+dim(dat)
+
+## Clean
+rm(adm, pat)
+
+## (4)
+dat <- merge(dat, stays, by = intersect(colnames(dat), colnames(stays)))
+dim(dat)
+
+## Clean
+rm(stays)
+
+## Look again for pt, hadm, icustay numbers
+cat("There are", length(unique(dat$SUBJECT_ID)), "unique patients in this cohort.\n")
+cat("There are", length(unique(dat$HADM_ID)), "unique hospital admissions in this cohort.\n")
+cat("There are", length(unique(dat$ICUSTAY_ID)), "unique ICUSTAYs in this cohort.\n")
+```
+
+### Correct Ages and Remove patients younger than 18 years of age
+
+```{r}
+## Correct nonegenarian ages by imputing median age (91.4)
+dat[(dat$ADMISSION_AGE >= 90), ]$ADMISSION_AGE <- 91.4
+
+## Remove patients youner than 18
+tmp <- dat[(dat$ADMISSION_AGE >= 18), ]
+
+cat(length(unique(dat$SUBJECT_ID)) - length(unique(tmp$SUBJECT_ID)), "patients below the age of 18 removed.\n")
+cat(length(unique(dat$HADM_ID)) - length(unique(tmp$HADM_ID)), "hospital admissions for patients below the age of 18 removed.\n")
+cat(length(unique(dat$ICUSTAY_ID)) - length(unique(tmp$ICUSTAY_ID)), "ICU stays for patients below the age of 18 removed.\n")
+
+## dat gets tmp, remove tmp
+dat <- tmp
+rm(tmp)
+
+cat("There are", length(unique(dat$SUBJECT_ID)), "unique patients in this cohort.\n")
+cat("There are", length(unique(dat$HADM_ID)), "unique hospital admissions in this cohort.\n")
+cat("There are", length(unique(dat$ICUSTAY_ID)), "unique ICUSTAYs in this cohort.\n")
+```
+
+## Diagnoses & Procedures
+
+Load `DIAGNOSES_ICD` and `D_ICD_DIAGNOSES`.
+
+```{r}
+## Load ICD codes
+icd <- merge(read.csv("~/MIMIC-III/DIAGNOSES_ICD.csv", header = T, stringsAsFactors = F), 
+             read.csv("~/MIMIC-III/D_ICD_DIAGNOSES.csv", header = T, stringsAsFactors = F), by = "ICD9_CODE")
+
+## Clean Row IDs
+icd$ROW_ID.x <- NULL
+icd$ROW_ID.y <- NULL
+
+## Rename columns to tag them with diagnosis for regerence
+icd <- rename(icd, c("SUBJECT_ID", "HADM_ID"), "DIAGNOSIS_")
+
+## View head
+head(icd)
+```
+
+### Malignant Neoplasm of Head/Face/Neck
+
+Look for `14XX` ICDs indicating malignant neoplasm, remove patients with diagnosis.
+
+```{r}
+unique(icd[grepl("^14\\d", icd$DIAGNOSIS_ICD9_CODE),]$DIAGNOSIS_LONG_TITLE)
+
+tmp <- dat[!(dat$HADM_ID %in% icd[grepl("^14\\d", icd$DIAGNOSIS_ICD9_CODE),]$HADM_ID),]
+
+cat(length(unique(dat$SUBJECT_ID)) - length(unique(tmp$SUBJECT_ID)), "patients removed.\n")
+cat(length(unique(dat$HADM_ID)) - length(unique(tmp$HADM_ID)), "hospital admissions removed.\n")
+cat(length(unique(dat$ICUSTAY_ID)) - length(unique(tmp$ICUSTAY_ID)), "ICU stays removed.\n")
+
+## dat gets tmp, remove tmp
+dat <- tmp
+rm(tmp)
+```
+
+### Myasthinia gravis
+
+Look for `35XX` ICDs indicating myasthinia gravis, remove patients with diagnosis.
+
+```{r}
+for (code in c("^3589", "^3590", "^3591", "^35801")) cat(gsub("\\^", '', code),": ", unique(icd[grepl(code, icd$DIAGNOSIS_ICD9_CODE),]$DIAGNOSIS_LONG_TITLE),'\n', sep = '')
+rm(code)
+
+## Subsetting
+tmp <- dat[!(dat$HADM_ID %in% icd[grepl("^3589", icd$DIAGNOSIS_ICD9_CODE),]$HADM_ID),]
+tmp <- tmp[!(tmp$HADM_ID %in% icd[grepl("^3590", icd$DIAGNOSIS_ICD9_CODE),]$HADM_ID),]
+tmp <- tmp[!(tmp$HADM_ID %in% icd[grepl("^3591", icd$DIAGNOSIS_ICD9_CODE),]$HADM_ID),]
+tmp <- tmp[!(tmp$HADM_ID %in% icd[grepl("^35801", icd$DIAGNOSIS_ICD9_CODE),]$HADM_ID),]
+
+## Check
+cat(length(unique(dat$SUBJECT_ID)) - length(unique(tmp$SUBJECT_ID)), "patients removed.\n")
+cat(length(unique(dat$HADM_ID)) - length(unique(tmp$HADM_ID)), "hospital admissions removed.\n")
+cat(length(unique(dat$ICUSTAY_ID)) - length(unique(tmp$ICUSTAY_ID)), "ICU stays removed.\n")
+
+## dat gets tmp, remove tmp
+dat <- tmp
+rm(tmp)
+```
+
+### Burns
+
+1. View list of burn diagnoses `94XX` ICDs.
+2. Remove patients with diagnoses of burns to H/F/N or >30% BSA.
+
+```{r}
+## (1) View list of burn types
+unique(icd[grepl("^94\\d", icd$DIAGNOSIS_ICD9_CODE),]$DIAGNOSIS_LONG_TITLE)
+
+## Only H/F/N or >30% BSA
+(codes <- unique(icd[grepl("^94\\d", icd$DIAGNOSIS_ICD9_CODE),]$DIAGNOSIS_LONG_TITLE)[c(1, 2, 3, 4, 5,
+                                                                                        33, 34, 37, 38)])
+
+## Find associated HADM_IDs
+codes <- unique(icd[(icd$DIAGNOSIS_LONG_TITLE %in% codes),]$HADM_ID)
+
+## (2) Removal
+tmp <- dat[!(dat$HADM_ID %in% codes),]
+
+## Numbers
+cat(length(unique(dat$SUBJECT_ID)) - length(unique(tmp$SUBJECT_ID)), "patients with burns removed.\n")
+cat(length(unique(dat$HADM_ID)) - length(unique(tmp$HADM_ID)), "hospital admissions associated with burn victims removed.\n")
+cat(length(unique(dat$ICUSTAY_ID)) - length(unique(tmp$ICUSTAY_ID)), "ICU stays associated with burn victims removed.\n")
+
+## dat gets tmp, remove tmp
+dat <- tmp
+rm(tmp, codes)
+```
+
+### Organ Transplant Patients
+
+Remove organ donors as they could be cadaveric.
+
+```{r}
+tmp <- dat[!(dat$HADM_ID %in% icd[grepl("donor", icd$DIAGNOSIS_LONG_TITLE, ignore.case = TRUE),]$HADM_ID),]
+
+## Numbers
+cat(length(unique(dat$SUBJECT_ID)) - length(unique(tmp$SUBJECT_ID)), "patients removed as being organ donors.\n")
+cat(length(unique(dat$HADM_ID)) - length(unique(tmp$HADM_ID)), "hospital admissions associated with organ donors.\n")
+cat(length(unique(dat$ICUSTAY_ID)) - length(unique(tmp$ICUSTAY_ID)), "ICU stays associated with organ donors.\n")
+
+## dat gets tmp, remove tmp
+dat <- tmp
+rm(tmp, icd)
+```
+
+## Check Ventilator Use
+
+1. Load `ventdurations` (derived table)
+2. Merge data, thus removing any patients which have no ventilation events
+
+```{r}
+## (1)
+## ventdurations
+vent <- read.csv("~/MIMIC-III/ventdurations.csv", header = T, stringsAsFactors = F)
+## Convert column names to uppercase
+colnames(vent) <- toupper(colnames(vent))
+
+## (2)
+## Remove patients with no ventilation data
+tmp <- merge(dat, vent, by = "ICUSTAY_ID")
+
+## Print numbers
+cat(length(unique(dat$SUBJECT_ID)) - length(unique(tmp$SUBJECT_ID)), "patients removed for never being on a ventilator.\n")
+cat(length(unique(dat$HADM_ID)) - length(unique(tmp$HADM_ID)), "hospital admissions removed for not being associated with ventilator use.\n")
+cat(length(unique(dat$ICUSTAY_ID)) - length(unique(tmp$ICUSTAY_ID)), "ICU stays removed for not being associated with ventilator use.\n")
+
+## dat gets tmp, remove tmp
+dat <- tmp
+rm(tmp, vent)
+
+## Print
+cat("There are", length(unique(dat$SUBJECT_ID)), "unique patients in this cohort.\n")
+cat("There are", length(unique(dat$HADM_ID)), "unique hospital admissions in this cohort.\n")
+cat("There are", length(unique(dat$ICUSTAY_ID)), "unique ICUSTAYs in this cohort.\n")
+
+
+## Write csv
+## write.csv(dat, "~/LindvallLab/trach_study_v2/trach_study_all20Sep19.csv", row.names = F)
+```
+
+### Time and Ventilator Selection
+
+1. Convert data from character to dates for ordering
+2. Order based on `SUBJECT_ID`, `HADM_ID`, `ICUSTAY_ID`, `INTIME`, `STARTTIME`
+3. Create d7 cohort
+4. Create d14 cohort
+5. Add Cohort information and merge
+
+```{r}
+## (1) Vent time data
+dat$STARTTIME <- strptime(dat$STARTTIME, "%Y-%m-%d %H:%M:%S", tz = "EST")
+dat$ENDTIME <- strptime(dat$ENDTIME, "%Y-%m-%d %H:%M:%S", tz = "EST")
+dat$ADMITTIME <- strptime(dat$ADMITTIME, "%Y-%m-%d %H:%M:%S", tz = "EST")
+dat$INTIME <- strptime(dat$INTIME, "%Y-%m-%d %H:%M:%S", tz = "EST")
+dat$OUTTIME <- strptime(dat$OUTTIME, "%Y-%m-%d %H:%M:%S", tz = "EST")
+dat$DOD <- strptime(dat$DOD, "%Y-%m-%d %H:%M:%S", tz = "EST")
+dat$DISCHTIME <- strptime(dat$DISCHTIME, "%Y-%m-%d %H:%M:%S", tz = "EST")
+
+## Days Until Death
+dat$DAYS_UNTIL_DEATH <- ifelse(is.na(dat$DOD), NA, as.numeric(dat$DOD - dat$ADMITTIME, units = "days"))
+
+## (3)
+tmpd7 <- ventCheck(dat, 7, "ICUSTAY_ID", 0.25)
+
+## (4)
+tmpd14 <- ventCheck(dat, 14, "ICUSTAY_ID", 0.25)
+
+## (5)
+tmpd7$COHORT <- rep("d7", each = nrow(tmpd7))
+tmpd14$COHORT <- rep("d14", each = nrow(tmpd14))
+```
+
+### Check Cohort
+
+```{r}
+## Check
+cat(length(unique(dat$SUBJECT_ID)) - length(unique(tmpd7$SUBJECT_ID)), "d7 patients removed.\n")
+cat(length(unique(dat$HADM_ID)) - length(unique(tmpd7$HADM_ID)), "d7 hospital admissions removed.\n")
+cat(length(unique(dat$ICUSTAY_ID)) - length(unique(tmpd7$ICUSTAY_ID)), "d7 ICU stays removed.\n")
+
+## Check
+cat(length(unique(dat$SUBJECT_ID)) - length(unique(tmpd14$SUBJECT_ID)), "d14 patients removed.\n")
+cat(length(unique(dat$HADM_ID)) - length(unique(tmpd14$HADM_ID)), "d14 hospital admissions removed.\n")
+cat(length(unique(dat$ICUSTAY_ID)) - length(unique(tmpd14$ICUSTAY_ID)), "d14 ICU stays removed.\n")
+
+print_info(tmpd7)
+print_info(tmpd14)
+```
+
+## Write data
+
+```{r}
+## Add cohort info
+dat$COHORT <- rep("overall", each = nrow(dat))
+
+write.csv(dat, file = "~/LindvallLab/trach_study_v2/entire_cohort27Sep19.csv", row.names = F)
+write.csv(tmpd7, file = "~/LindvallLab/trach_study_v2/d7_mechvent_cohort27Sep19.csv", row.names = F)
+write.csv(tmpd14, file = "~/LindvallLab/trach_study_v2/d14_mechvent_cohort27Sep19.csv", row.names = F)
+```

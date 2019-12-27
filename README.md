@@ -24,7 +24,7 @@ To download pretrained Clinical XLNet, click the following links: [This]() only 
 
 Below list the sample scripts for running prediction. You can also simply modify the label to do your own downstream prediction task.
 
-### Mortality or PMV Prediction
+### Using Finetuned weights for Mortality or PMV Prediction
 ```
 python train.py \
   --data_dir DATA_FILE\

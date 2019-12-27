@@ -16,13 +16,13 @@ time
 sklearn
 ```
 
-## Clinical XLNet Weights
+## Pretrained Clinical XLNet Weights
 
-To download pretrained Clinical XLNet, click the following links: [This]() only uses Nursing Notes to pretrain and [this]() uses the discharge summary to pretrain. [This]() is the finetuned weights for PMV task, and [this]() is the finetuned weights for Mortality task. 
+To download pretrained Clinical XLNet, click the following links: [This]() only uses Nursing Notes to pretrain and [this]() uses the discharge summary to pretrain. 
 
 ## PMV and Mortality Prediction using Clinical XLNet
 
-Below list the sample scripts for running prediction. You can also simply modify the label to do your own downstream prediction task.
+Below list the sample scripts for running prediction. You can also simply modify the label to do your own downstream prediction task. [This]() is the finetuned weights for PMV task, and [this]() is the finetuned weights for Mortality task. 
 
 ### Using Finetuned weights for Mortality or PMV Prediction
 ```

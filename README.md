@@ -18,7 +18,7 @@ sklearn
 
 ## Pretrained Clinical XLNet Weights
 
-To download pretrained Clinical XLNet, click the following links: [This]() only uses Nursing Notes to pretrain and [this]() uses the discharge summary to pretrain. 
+To download pretrained Clinical XLNet, click the following links: [This](https://hu-my.sharepoint.com/:u:/g/personal/kexinhuang_hsph_harvard_edu/EUlvazuINQZCqr3LW3z64-QBrg6Y3dUyy_jflgMM0fRMng?e=loejxo) only uses Nursing Notes to pretrain and [this](https://hu-my.sharepoint.com/:u:/r/personal/kexinhuang_hsph_harvard_edu/Documents/clinical_xlnet_pytorch.zip?csf=1&e=c6dbLx) uses the discharge summary to pretrain. 
 
 ## PMV and Mortality Prediction using Clinical XLNet
 
@@ -90,13 +90,13 @@ Please contact kexinhuang@hsph.harvard.edu for help or submit an issue.
 
 ## Citation
 
-Please cite [arxiv]():
+Please cite [arxiv](https://arxiv.org/abs/1912.11975):
 ```
 @article{clinicalxlnet,
 author = {Kexin Huang and Abhishek Singh and Sitong Chen and Edward Moseley and Chin-ying Deng and Naomi George and Charlotta Lindvall},
 title = {Clinical XLNet: Modeling Sequential Clinical Notes and Predicting Prolonged Mechanical Ventilation},
 year = {2019},
-journal = {arXiv:},
+journal = {arXiv:1912.11975},
 }
 
 ```

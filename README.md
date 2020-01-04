@@ -18,7 +18,7 @@ sklearn
 
 ## Pretrained Clinical XLNet Weights
 
-To download pretrained Clinical XLNet, click the following links: [This](https://hu-my.sharepoint.com/:u:/g/personal/kexinhuang_hsph_harvard_edu/EUlvazuINQZCqr3LW3z64-QBrg6Y3dUyy_jflgMM0fRMng?e=loejxo) only uses Nursing Notes to pretrain and [this](https://hu-my.sharepoint.com/:u:/r/personal/kexinhuang_hsph_harvard_edu/Documents/clinical_xlnet_pytorch.zip?csf=1&e=c6dbLx) uses the discharge summary to pretrain. 
+To download pretrained Clinical XLNet, click the following links: [This](https://hu-my.sharepoint.com/:u:/g/personal/kexinhuang_hsph_harvard_edu/EUlvazuINQZCqr3LW3z64-QBrg6Y3dUyy_jflgMM0fRMng?e=loejxo) only uses Nursing Notes to pretrain and [this](https://hu-my.sharepoint.com/:u:/g/personal/kexinhuang_hsph_harvard_edu/ERPrsMddJMhDoltA5EniFk8BkLKoRF3O5JmYfCThvG3ctQ?e=Fe6zmi) uses the discharge summary to pretrain. 
 
 ## PMV and Mortality Prediction using Clinical XLNet
 

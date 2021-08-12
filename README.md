@@ -86,7 +86,7 @@ We provide notebook for preprocessing clinical notes and curate the PMV cohort o
 
 ## Contact
 
-Please contact kexinhuang@hsph.harvard.edu for help or submit an issue. 
+Please contact charlotta_lindvall@dfci.harvard.edu for help or submit an issue. 
 
 ## Citation
 
